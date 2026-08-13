@@ -1,25 +1,114 @@
 @import 'variables';
 
+body, h1, h2, h3, h4, h5, h6, p, a {
+  font-family: var(--font-stack);
+  line-height: 150%;
+  margin:0;;
+  color: var(--body-color);
+}
+
+h2{
+    font-size:2rem;
+}
+
+.sub{
+    opacity:0.5;
+}
+.container{
+        max-width:var(--max-width);
+        margin:0 auto;
+}
 section.hero{
     width:100vw;
-    height:800vh;
-    
+    height:80vh;
+    position:relative;
+
+    /* Polka dot background: dots are 4px with 16px gap between dots (center-to-center = 4 + 16 = 20px) */
+    background-color: var(--color-bg);
+    background-image: radial-gradient(circle, var(--dots-color) calc(var(--dot-size) / 2), transparent calc(var(--dot-size) / 2));
+    background-size: calc(var(--dot-size) + var(--dot-gap)) calc(var(--dot-size) + var(--dot-gap));
+    background-position: 0 0;
+    background-repeat: repeat;
+
     .container{
-        max-width:var(--max-width);
-        margin:auto;
+    display:flex;
+    flex-direction:column;
+    gap:1rem;
+    align-items:start;
+    justify-content:start;
+    padding-top:4rem;
 
-        .profile{
-        display:flex;
-        flex-direction:row;
-        align-items:center; /* prevents children from stretching in flex layout */
-        gap:1rem;
 
-            .profile-image{
-                width:3rem; 
-                aspect-ratio: 1/1; 
-                border-radius:50%;
-                background:red;
+    }
+
+    .profile{
+    display:flex;
+    flex-direction:row;
+    align-items:center; /* prevents children from stretching in flex layout */
+    gap:1rem;
+
+        .profile-image{
+            width:3rem; 
+            aspect-ratio: 1/1; 
+            border-radius:50%;
+            overflow: hidden;
+            background:var(--surface);
+
+            img {
+                // width: 100%;
+                // height: 100%;
+                // object-fit: cover;
+                // display: block;
             }
         }
+    }
+
+    h1{
+        font-size:5rem;
+    }
+    p.subtext{
+        font-size:2.5rem;
+    }
+
+    .gradient{
+        background: linear-gradient(0deg, #ffffff 0%, #ffffff00 100%);
+        position:absolute;
+        bottom:0px;
+        // background:green;
+        height:10rem;
+        width:100%;
+    }
+}
+
+section.library {
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .grid-item {
+        aspect-ratio: 1/1;
+        background: var(--surface, #f5f5f5);
+        border-radius: 1rem;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        flex-wrap: wrap;
+        flex-direction: column;
+    }
+
+    /* Ensure the widget root element is centered inside the cell
+       (some widgets use width:90% etc., margin:auto recenters them) */
+    .grid-item > * {
+        margin: auto;
+        flex-shrink: 0;
+    }
+
+    .subtext{
+        margin-bottom:2rem;
     }
 }
