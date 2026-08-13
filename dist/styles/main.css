@@ -1,6 +1,6 @@
 /* Design tokens as CSS custom properties (available at runtime) */
 :root {
-  --color-accent: #ff7a00;
+  --primary: #ff7a00;
   --color-muted: #9b9b9b;
   --color-bg: #ffffff;
   --surface: #f5f5f5;
@@ -23,7 +23,7 @@ body, h1, h2, h3, h4, h5, h6, p, a {
 }
 
 h2 {
-  font-size: 2rem;
+  font-size: 3rem;
 }
 
 .sub {
@@ -70,6 +70,9 @@ section.hero .profile .profile-image {
 section.hero h1 {
   font-size: 5rem;
 }
+section.hero h1 span {
+  color: var(--primary);
+}
 section.hero p.subtext {
   font-size: 2.5rem;
 }
@@ -102,4 +105,5 @@ section.library .grid-item iframe {
 }
 section.library .subtext {
   margin-bottom: 2rem;
+  font-size: 1.5rem;
 }
