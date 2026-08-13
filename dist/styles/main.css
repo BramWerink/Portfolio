@@ -8,8 +8,7 @@
   --max-width: 1100px;
   --font-stack: "Manrope", sans-serif;
   /* type */
-  --body:#4F4032
-
+  --body-color: #352b22;
   /* Polka dot background */
   --dot-size: 4px; /* diameter of each dot */
   --dot-gap: 16px; /* space BETWEEN dots */
@@ -93,20 +92,13 @@ section.library .grid-item {
   background: var(--surface, #f5f5f5);
   border-radius: 1rem;
   padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   overflow: hidden;
-  flex-wrap: wrap;
-  flex-direction: column;
 }
-section.library {
-  /* Ensure the widget root element is centered inside the cell
-     (some widgets use width:90% etc., margin:auto recenters them) */
-}
-section.library .grid-item > * {
-  margin: auto;
-  flex-shrink: 0;
+section.library .grid-item iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
 }
 section.library .subtext {
   margin-bottom: 2rem;
