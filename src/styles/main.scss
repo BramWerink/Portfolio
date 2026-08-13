@@ -1,5 +1,9 @@
 @import 'variables';
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body, h1, h2, h3, h4, h5, h6, p, a {
   font-family: var(--font-stack);
   line-height: 150%;
@@ -9,6 +13,14 @@ body, h1, h2, h3, h4, h5, h6, p, a {
 
 h2{
     font-size:3rem;
+
+    @media (max-width: $bp-tablet) {
+        font-size:2.25rem;
+    }
+
+    @media (max-width: $bp-phone) {
+        font-size:1.75rem;
+    }
 }
 
 .sub{
@@ -17,10 +29,18 @@ h2{
 .container{
         max-width:var(--max-width);
         margin:0 auto;
+        /* Keeps text off the screen edge below --max-width */
+        padding-inline:1.5rem;
+
+        @media (max-width: $bp-phone) {
+            padding-inline:1.25rem;
+        }
 }
 section.hero{
-    width:100vw;
-    height:80vh;
+    /* 100% and not 100vw: 100vw ignores the scrollbar and causes sideways scroll */
+    width:100%;
+    /* min-height so the hero can grow when the text wraps on small screens */
+    min-height:80vh;
     position:relative;
 
     /* Polka dot background: dots are 4px with 16px gap between dots (center-to-center = 4 + 16 = 20px) */
@@ -38,7 +58,13 @@ section.hero{
     justify-content:start;
     padding-top:4rem;
 
+        @media (max-width: $bp-tablet) {
+            padding-top:3rem;
+        }
 
+        @media (max-width: $bp-phone) {
+            padding-top:2rem;
+        }
     }
 
     .profile{
@@ -48,8 +74,8 @@ section.hero{
     gap:1rem;
 
         .profile-image{
-            width:3rem; 
-            aspect-ratio: 1/1; 
+            width:3rem;
+            aspect-ratio: 1/1;
             border-radius:50%;
             overflow: hidden;
             background:var(--surface);
@@ -68,9 +94,25 @@ section.hero{
         span{
             color:var(--primary);
         }
+
+        @media (max-width: $bp-tablet) {
+            font-size:3.5rem;
+        }
+
+        @media (max-width: $bp-phone) {
+            font-size:2.5rem;
+        }
     }
     p.subtext{
         font-size:2.5rem;
+
+        @media (max-width: $bp-tablet) {
+            font-size:1.75rem;
+        }
+
+        @media (max-width: $bp-phone) {
+            font-size:1.25rem;
+        }
     }
 
     .gradient{
@@ -80,6 +122,10 @@ section.hero{
         // background:green;
         height:10rem;
         width:100%;
+
+        @media (max-width: $bp-phone) {
+            height:5rem;
+        }
     }
 }
 
@@ -89,6 +135,11 @@ section.library {
         grid-template-columns: repeat(2, 1fr);
         gap: 1rem;
         width: 100%;
+
+        /* One square per row: two columns leave each widget too narrow to read */
+        @media (max-width: $bp-phone) {
+            grid-template-columns: 1fr;
+        }
     }
 
     .grid-item {
@@ -109,5 +160,14 @@ section.library {
     .subtext{
         margin-bottom:2rem;
         font-size:1.5rem;
+
+        @media (max-width: $bp-tablet) {
+            font-size:1.25rem;
+        }
+
+        @media (max-width: $bp-phone) {
+            font-size:1.125rem;
+            margin-bottom:1.5rem;
+        }
     }
 }
