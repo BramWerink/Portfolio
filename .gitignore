@@ -1,0 +1,38 @@
+# Node dependencies
+node_modules/
+
+# Environment files (secrets)
+.env
+.env.*
+
+# VS Code and IDE settings (local only)
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Build / cache (local, regenerated)
+.cache/
+.sass-cache/
+.parcel-cache/
+dist/.cache/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# package-lock.json
+# yarn.lock
+
+# Misc
+*.tmp
+*.swp
+"

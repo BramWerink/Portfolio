@@ -1,0 +1,25 @@
+@import 'variables';
+
+section.hero{
+    width:100vw;
+    height:800vh;
+    
+    .container{
+        max-width:var(--max-width);
+        margin:auto;
+
+        .profile{
+        display:flex;
+        flex-direction:row;
+        align-items:center; /* prevents children from stretching in flex layout */
+        gap:1rem;
+
+            .profile-image{
+                width:3rem; 
+                aspect-ratio: 1/1; 
+                border-radius:50%;
+                background:red;
+            }
+        }
+    }
+}

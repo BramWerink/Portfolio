@@ -1,0 +1,11 @@
+{
+  "name": "portfolio",
+  "version": "1.0",
+  "description": "Portfolio 2026 Bram Werink",
+  "private": true,
+  "scripts": {
+    "build:sass": "sass src/styles/main.scss dist/styles/main.css --style=expanded",
+    "watch:sass": "sass --watch src/styles/main.scss:dist/styles/main.css"
+  },
+  "devDependencies": {}
+}
