@@ -8,6 +8,7 @@ node_modules/
 # VS Code and IDE settings (local only)
 .vscode/
 .idea/
+.claude/
 
 # OS files
 .DS_Store
@@ -35,4 +36,3 @@ coverage/
 # Misc
 *.tmp
 *.swp
-"
