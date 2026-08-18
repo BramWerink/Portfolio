@@ -130,6 +130,7 @@ section.hero{
 }
 
 section.library {
+    padding:3rem 0;
     .grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);

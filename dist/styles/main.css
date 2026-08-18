@@ -144,6 +144,9 @@ section.hero .gradient {
   }
 }
 
+section.library {
+  padding: 3rem 0;
+}
 section.library .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
