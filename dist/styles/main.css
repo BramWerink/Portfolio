@@ -1,3 +1,5 @@
+/* Breakpoints as Sass variables: a media query condition cannot read a
+   CSS custom property, so these have to exist at compile time. */
 /* Design tokens as CSS custom properties (available at runtime) */
 :root {
   --primary: #ff7a00;
@@ -15,6 +17,10 @@
   --dots-color: rgba(0,0,0,0.06); /* subtle dot color */
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body, h1, h2, h3, h4, h5, h6, p, a {
   font-family: var(--font-stack);
   line-height: 150%;
@@ -25,6 +31,16 @@ body, h1, h2, h3, h4, h5, h6, p, a {
 h2 {
   font-size: 3rem;
 }
+@media (max-width: 900px) {
+  h2 {
+    font-size: 2.25rem;
+  }
+}
+@media (max-width: 600px) {
+  h2 {
+    font-size: 1.75rem;
+  }
+}
 
 .sub {
   opacity: 0.5;
@@ -33,11 +49,20 @@ h2 {
 .container {
   max-width: var(--max-width);
   margin: 0 auto;
+  /* Keeps text off the screen edge below --max-width */
+  padding-inline: 1.5rem;
+}
+@media (max-width: 600px) {
+  .container {
+    padding-inline: 1.25rem;
+  }
 }
 
 section.hero {
-  width: 100vw;
-  height: 80vh;
+  /* 100% and not 100vw: 100vw ignores the scrollbar and causes sideways scroll */
+  width: 100%;
+  /* min-height so the hero can grow when the text wraps on small screens */
+  min-height: 80vh;
   position: relative;
   /* Polka dot background: dots are 4px with 16px gap between dots (center-to-center = 4 + 16 = 20px) */
   background-color: var(--color-bg);
@@ -53,6 +78,16 @@ section.hero .container {
   align-items: start;
   justify-content: start;
   padding-top: 4rem;
+}
+@media (max-width: 900px) {
+  section.hero .container {
+    padding-top: 3rem;
+  }
+}
+@media (max-width: 600px) {
+  section.hero .container {
+    padding-top: 2rem;
+  }
 }
 section.hero .profile {
   display: flex;
@@ -73,8 +108,28 @@ section.hero h1 {
 section.hero h1 span {
   color: var(--primary);
 }
+@media (max-width: 900px) {
+  section.hero h1 {
+    font-size: 3.5rem;
+  }
+}
+@media (max-width: 600px) {
+  section.hero h1 {
+    font-size: 2.5rem;
+  }
+}
 section.hero p.subtext {
   font-size: 2.5rem;
+}
+@media (max-width: 900px) {
+  section.hero p.subtext {
+    font-size: 1.75rem;
+  }
+}
+@media (max-width: 600px) {
+  section.hero p.subtext {
+    font-size: 1.25rem;
+  }
 }
 section.hero .gradient {
   background: linear-gradient(0deg, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
@@ -83,12 +138,26 @@ section.hero .gradient {
   height: 10rem;
   width: 100%;
 }
+@media (max-width: 600px) {
+  section.hero .gradient {
+    height: 5rem;
+  }
+}
 
+section.library {
+  padding: 3rem 0;
+}
 section.library .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
   width: 100%;
+  /* One square per row: two columns leave each widget too narrow to read */
+}
+@media (max-width: 600px) {
+  section.library .grid {
+    grid-template-columns: 1fr;
+  }
 }
 section.library .grid-item {
   aspect-ratio: 1/1;
@@ -106,4 +175,15 @@ section.library .grid-item iframe {
 section.library .subtext {
   margin-bottom: 2rem;
   font-size: 1.5rem;
+}
+@media (max-width: 900px) {
+  section.library .subtext {
+    font-size: 1.25rem;
+  }
+}
+@media (max-width: 600px) {
+  section.library .subtext {
+    font-size: 1.125rem;
+    margin-bottom: 1.5rem;
+  }
 }

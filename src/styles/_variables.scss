@@ -1,3 +1,8 @@
+/* Breakpoints as Sass variables: a media query condition cannot read a
+   CSS custom property, so these have to exist at compile time. */
+$bp-tablet: 900px;
+$bp-phone: 600px;
+
 /* Design tokens as CSS custom properties (available at runtime) */
 :root {
   --primary: #ff7a00;
