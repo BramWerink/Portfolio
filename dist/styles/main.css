@@ -169,13 +169,8 @@ section.library .grid-item iframe {
   display: block;
 }
 section.library .grid-item.wide {
-  /* A widget that needs a landscape frame instead of a square one.
-     1 / -1 and not span 2, so it still fills the row once the grid
-     drops to a single column. */
   grid-column: 1/-1;
   aspect-ratio: 2/1;
-  /* One column at this width, so the tile is already as wide as a square
-     one and 2/1 would leave it too short to read */
 }
 @media (max-width: 600px) {
   section.library .grid-item.wide {
