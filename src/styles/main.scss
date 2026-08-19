@@ -154,6 +154,17 @@ section.library {
         }
     }
 
+   
+    .grid-item.wide {
+        grid-column: 1 / -1;
+        aspect-ratio: 2/1;
+
+        
+        @media (max-width: $bp-phone) {
+            aspect-ratio: 1/1;
+        }
+    }
+
     .subtext{
         margin-bottom:2rem;
         font-size:1.5rem;
