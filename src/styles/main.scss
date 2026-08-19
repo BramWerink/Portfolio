@@ -38,7 +38,7 @@ h2{
 }
 section.hero{
     width:100%;
-    min-height:70vh;
+    height:80vh;
     position:relative;
 
     /* Polka dot background: dots are 4px with 16px gap between dots (center-to-center = 4 + 16 = 20px) */
@@ -51,8 +51,10 @@ section.hero{
     .container{
     display:flex;
     flex-direction:column;
+    justify-content:center;
     gap:1rem;
     padding-top:4rem;
+    height:100%;
 
         @media (max-width: $bp-tablet) {
             padding-top:3rem;
