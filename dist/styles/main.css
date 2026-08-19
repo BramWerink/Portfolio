@@ -59,10 +59,8 @@ h2 {
 }
 
 section.hero {
-  /* 100% and not 100vw: 100vw ignores the scrollbar and causes sideways scroll */
   width: 100%;
-  /* min-height so the hero can grow when the text wraps on small screens */
-  min-height: 80vh;
+  height: 80vh;
   position: relative;
   /* Polka dot background: dots are 4px with 16px gap between dots (center-to-center = 4 + 16 = 20px) */
   background-color: var(--color-bg);
@@ -74,10 +72,10 @@ section.hero {
 section.hero .container {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 1rem;
-  align-items: start;
-  justify-content: start;
   padding-top: 4rem;
+  height: 100%;
 }
 @media (max-width: 900px) {
   section.hero .container {
@@ -171,6 +169,15 @@ section.library .grid-item iframe {
   height: 100%;
   border: 0;
   display: block;
+}
+section.library .grid-item.wide {
+  grid-column: 1/-1;
+  aspect-ratio: 2/1;
+}
+@media (max-width: 600px) {
+  section.library .grid-item.wide {
+    aspect-ratio: 1/1;
+  }
 }
 section.library .subtext {
   margin-bottom: 2rem;
