@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="widget-base.css">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+.weather,
+.weather *,
+.weather *::before {
+    box-sizing: border-box;
+}
+
+.weather {
+    --bg: #e5e5e2;
+    --fg: #26272a;
+    --dim: #626368;
+    --art: #26272a;
+
+    /* Every measurement below is a multiple of --u, so the whole card scales as
+       one piece. The card is ~35u tall and 21u wide and the widget sits in a
+       square tile, so height is what runs out first: 2.6vmin keeps it inside a
+       small tile, while the 1rem cap holds it at the design size on desktop. */
+    --u: min(1rem, 2.6vmin);
+
+    font-size: var(--u);
+    /* widget-base.css supplies Manrope for the house style, but this widget's
+       whole design is the terminal face. It loads the one font it needs itself
+       rather than putting VT323 in the base and making the other five fetch it. */
+    font-family: "VT323", monospace;
+    line-height: 1.15;
+    width: 92%;
+    max-width: calc(var(--u) * 21);
+    padding: calc(var(--u) * 1.125) calc(var(--u) * 1.25) calc(var(--u) * 1.25);
+    background: var(--bg);
+    color: var(--fg);
+    border-radius: calc(var(--u) * 1.375);
+    box-shadow: 0px 1px 1rem 0px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 0.625);
+    overflow: hidden;
+    flex-shrink: 0;
+    user-select: none;
+    transition: background 500ms, color 500ms;
+}
+
+.weather button {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+/* The ring rides on --fg, which is always the designed partner of --bg, so it
+   stays visible on the near-black storm and night themes too. */
+.weather button:focus-visible {
+    outline: 2px solid var(--fg);
+    outline-offset: 2px;
+}
+
+.weather pre {
+    margin: 0;
+    font-family: inherit;
+    color: var(--art);
+}
+
+.weather .dim {
+    color: var(--dim);
+}
+
+/* Header: city name left, its local time right */
+.weather .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.weather .city {
+    font-size: 1.4375em;
+    display: flex;
+    gap: calc(var(--u) * 0.375);
+    align-items: center;
+}
+
+.weather .time {
+    font-size: 1.125em;
+}
+
+/* The two <pre> blocks keep font-size and line-height locked to the same
+   multiple of --u. A legibility floor on one but not the other would stretch
+   the character cell and tear the ASCII art off its grid. */
+.weather .scene {
+    align-self: center;
+    font-size: calc(var(--u) * 1.125);
+    line-height: calc(var(--u) * 1.125);
+}
+
+.weather .main {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: calc(var(--u) * 0.5);
+}
+
+.weather .temp {
+    font-size: 4.875em;
+    line-height: 0.9;
+    flex-shrink: 0;
+}
+
+.weather .desc {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: calc(var(--u) * 0.125);
+    font-size: 1.125em;
+    text-align: right;
+    min-width: 0;
+}
+
+.weather .desc .dim {
+    white-space: nowrap;
+}
+
+.weather .cells {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: calc(var(--u) * 0.5) calc(var(--u) * 0.375);
+    font-size: 1.0625em;
+    padding: calc(var(--u) * 0.625) 0;
+    border-top: 1px dashed var(--dim);
+    border-bottom: 1px dashed var(--dim);
+}
+
+.weather .cells div {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 0.0625);
+}
+
+.weather .cells b {
+    font-weight: normal;
+    font-size: 1.25em;
+}
+
+.weather .days {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    text-align: center;
+}
+
+.weather .days div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--u) * 0.1875);
+    font-size: 1.0625em;
+}
+
+.weather .days pre {
+    font-size: calc(var(--u) * 0.875);
+    line-height: calc(var(--u) * 0.875);
+}
+
+.weather .dots {
+    display: flex;
+    justify-content: center;
+    gap: calc(var(--u) * 0.375);
+}
+
+.weather .dots button {
+    font-size: 1.25em;
+    line-height: 1;
+    padding: calc(var(--u) * 0.125);
+    color: var(--dim);
+}
+
+.weather .dots button.on {
+    color: var(--fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .weather {
+        transition: none;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="weather">
+    <div class="head">
+        <button class="city" id="city" type="button"></button>
+        <span class="time dim" id="time"></span>
+    </div>
+    <pre class="scene" id="scene" aria-hidden="true"></pre>
+    <div class="main">
+        <div class="temp" id="temp"></div>
+        <div class="desc" aria-live="polite"><span id="desc"></span><span class="dim" id="hilo"></span></div>
+    </div>
+    <div class="cells" id="cells"></div>
+    <div class="days" id="days"></div>
+    <div class="dots" id="dots"></div>
+</div>
+
+<script>
+(function () {
+    const TICK_MS = 260;    /* one animation step; slow enough to read as weather, not noise */
+    const SCENE_W = 26;     /* the hero scene is a fixed character grid, sized to the card */
+    const SCENE_H = 7;
+    const ICON_W = 12;      /* the three forecast icons share a smaller grid */
+    const ICON_H = 5;
+
+    const ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
+    const CURRENT = 'temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m';
+    const DAILY = 'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max';
+
+    /* Identity only. Everything that can change comes from the API, or from
+       FALLBACK when the request cannot be made. */
+    const CITIES = [
+        { code: 'ZWO', name: 'Zwolle', lat: 52.5168, lon: 6.0830 },
+        { code: 'STO', name: 'Stockholm', lat: 59.3293, lon: 18.0686 },
+        { code: 'RAK', name: 'Marrakesh', lat: 31.6295, lon: -7.9811 },
+        { code: 'LAX', name: 'Los Angeles', lat: 34.0522, lon: -118.2437 },
+        { code: 'FLR', name: 'Florence', lat: 43.7696, lon: 11.2558 },
+    ];
+
+    /* WMO weather codes grouped into the five scenes the renderer can draw.
+       Fog and freezing variants fold into the nearest scene rather than getting
+       their own sprites, which keeps the art table small. */
+    const CONDITIONS = {
+        0: ['clear', 'Helder'],
+        1: ['partly', 'Overwegend helder'],
+        2: ['partly', 'Half bewolkt'],
+        3: ['cloudy', 'Bewolkt'],
+        45: ['cloudy', 'Mistig'],
+        48: ['cloudy', 'Rijpmist'],
+        51: ['rain', 'Lichte motregen'],
+        53: ['rain', 'Motregen'],
+        55: ['rain', 'Dichte motregen'],
+        56: ['rain', 'IJzel'],
+        57: ['rain', 'IJzel'],
+        61: ['rain', 'Lichte regen'],
+        63: ['rain', 'Regen'],
+        65: ['rain', 'Zware regen'],
+        66: ['rain', 'IJzel'],
+        67: ['rain', 'Zware ijzel'],
+        71: ['snow', 'Lichte sneeuw'],
+        73: ['snow', 'Sneeuw'],
+        75: ['snow', 'Zware sneeuw'],
+        77: ['snow', 'Sneeuwkorrels'],
+        80: ['rain', 'Lichte buien'],
+        81: ['rain', 'Buien'],
+        82: ['rain', 'Zware buien'],
+        85: ['snow', 'Sneeuwbuien'],
+        86: ['snow', 'Zware sneeuwbuien'],
+        95: ['storm', 'Onweer'],
+        96: ['storm', 'Onweer met hagel'],
+        99: ['storm', 'Zwaar onweer'],
+    };
+    const UNKNOWN = ['cloudy', 'Onbekend'];
+
+    /* A snapshot in the same shape the API produces, so the card can be built
+       before the request resolves and can survive it failing entirely. */
+    const FALLBACK = {
+        ZWO: { time: '14:20', night: false, cond: 'rain', desc: 'Motregen', temp: 13, feels: 11, hi: 15, lo: 9, hum: 84, wind: 19, uv: 1, rise: '07:48', set: '19:21', precip: 80,
+            days: [['za', 'rain', 14, 9], ['zo', 'cloudy', 15, 10], ['ma', 'partly', 17, 10]] },
+        STO: { time: '14:20', night: false, cond: 'snow', desc: 'Lichte sneeuw', temp: -1, feels: -6, hi: 1, lo: -4, hum: 88, wind: 24, uv: 0, rise: '07:12', set: '17:48', precip: 70,
+            days: [['za', 'snow', 0, -5], ['zo', 'cloudy', 2, -3], ['ma', 'partly', 3, -2]] },
+        RAK: { time: '13:20', night: false, cond: 'clear', desc: 'Zonnig en droog', temp: 31, feels: 30, hi: 33, lo: 18, hum: 22, wind: 11, uv: 7, rise: '07:22', set: '19:06', precip: 0,
+            days: [['za', 'clear', 34, 19], ['zo', 'clear', 33, 18], ['ma', 'partly', 30, 17]] },
+        LAX: { time: '05:20', night: true, cond: 'clear', desc: 'Heldere sterrennacht', temp: 17, feels: 17, hi: 26, lo: 15, hum: 72, wind: 7, uv: 0, rise: '06:52', set: '18:29', precip: 0,
+            days: [['za', 'clear', 27, 16], ['zo', 'partly', 26, 16], ['ma', 'clear', 28, 17]] },
+        FLR: { time: '14:20', night: false, cond: 'partly', desc: 'Half bewolkt', temp: 21, feels: 21, hi: 24, lo: 12, hum: 54, wind: 9, uv: 4, rise: '07:29', set: '18:58', precip: 15,
+            days: [['za', 'partly', 25, 13], ['zo', 'storm', 22, 14], ['ma', 'rain', 20, 13]] },
+    };
+
+    /* Two sprite sets: the hero scene and the small forecast icons. The trailing
+       dimensions are each sprite's drawn size, needed to centre it on the grid. */
+    const LARGE = {
+        sunA: ['     \\   |   /', '       .---.', '  -- (       ) --', "       '---'", '     /   |   \\'],
+        sunB: ["     .   '   .", '       .---.', '   - (       ) -', "       '---'", "     '   .   '"],
+        moon: ['      _.._', "    .' .-'`", '   /  /', '   |  |', "   \\  '.___.;", "    '._  _.'", '       ``'],
+        cloud: ['        .-~~~-.', '   .- ~~       ~-.', '  (               )', "   `-._________.-'"],
+        bolt: ['  /', ' /_', '  /', ' /'],
+        sunW: 17, sunH: 5, moonW: 13, moonH: 7, cloudW: 19, cloudH: 4,
+    };
+    const SMALL = {
+        sunA: ['  \\ | /', ' - (_) -', '  / | \\'],
+        sunB: ["  . ' .", '-  (_)  -', "  ' . '"],
+        moon: ['  .-.', ' (  (', "  `-'"],
+        cloud: ['   .--.', ' .(    ).', '(___.___)'],
+        bolt: [' /', '/_'],
+        sunW: 9, sunH: 3, moonW: 5, moonH: 3, cloudW: 9, cloudH: 3,
+    };
+
+    const byId = (id) => document.getElementById(id);
+    const deg = (v) => `${v}°`;
+    const clock = (iso) => iso.slice(11, 16);
+    const dayName = new Intl.DateTimeFormat('nl-NL', { weekday: 'short' });
+
+    /* A cheap integer hash. Rain, snow and stars are placed by hashing the cell
+       coordinates against the time step, so every frame is reproducible and no
+       particle state has to be carried between ticks. */
+    const hash = (x, y) => {
+        let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263);
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return (h ^ (h >>> 16)) >>> 0;
+    };
+
+    const root = document.querySelector('.weather');
+    let readings = FALLBACK;
+    let index = 0;          /* opens on Zwolle, the one city the visitor is most likely standing in */
+    let step = 0;
+
+    /* Draws one frame of ASCII weather onto a width x height character grid.
+       Returns the text plus whether lightning struck, so the palette can flash
+       the card on the same frame the bolt appears. */
+    function scene(cond, night, time, width, height, big) {
+        const sprites = big ? LARGE : SMALL;
+        const grid = Array.from({ length: height }, () => Array(width).fill(' '));
+        const put = (x, y, ch) => {
+            if (y >= 0 && y < height && x >= 0 && x < width) grid[y][x] = ch;
+        };
+        const stamp = (sprite, x, y) => sprite.forEach((line, i) => {
+            const from = line.search(/\S/);
+            if (from < 0) return;
+            const to = line.trimEnd().length;
+            for (let j = from; j < to; j++) put(x + j, y + i, line[j]);
+        });
+        const drift = (k) => Math.round(Math.sin(time * 0.12 + k * 2.1) * 1.3);
+        const sun = time % 6 < 3 ? sprites.sunA : sprites.sunB;
+        let flash = false;
+
+        if (night && cond !== 'rain' && cond !== 'storm' && cond !== 'snow') {
+            const density = cond === 'cloudy' ? 23 : (big ? 13 : 9);
+            const twinkle = ['.', '.', '+', '*', '+', '.'];
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (hash(x, y) % density === 0) put(x, y, twinkle[(hash(y, x) + Math.floor(time / 3)) % 6]);
+                }
+            }
+        }
+
+        /* Precipitation starts below the cloud band so it never overdraws the cloud. */
+        const top = sprites.cloudH;
+
+        if (cond === 'rain' || cond === 'storm') {
+            const heavy = cond === 'storm';
+            const density = big ? (heavy ? 4 : 6) : (heavy ? 3 : 4);
+            for (let y = top; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const v = heavy ? hash(x + time, y - time) : hash(x, y - time);
+                    if (v % density === 0) put(x, y, heavy ? '/' : (v % 3 === 0 ? ',' : "'"));
+                }
+            }
+        }
+
+        if (cond === 'snow') {
+            const slow = Math.floor(time / 2);
+            for (let y = top; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const v = hash(x + Math.round(Math.sin((y - slow) * 0.8)), y - slow);
+                    if (v % (big ? 7 : 4) === 0) put(x, y, v % 2 ? '*' : '.');
+                }
+            }
+        }
+
+        if (cond === 'clear') {
+            if (night) {
+                stamp(sprites.moon, Math.floor((width - sprites.moonW) / 2), Math.max(0, Math.floor((height - sprites.moonH) / 2)));
+            } else {
+                stamp(sun, Math.floor((width - sprites.sunW) / 2), Math.max(0, Math.floor((height - sprites.sunH) / 2)));
+                if (big && width >= 20) {
+                    const bird = width - 1 - Math.floor(time / 2) % (width + 8);
+                    put(bird, 0, 'v');
+                    put(bird + 3, 1, 'v');
+                }
+            }
+        } else if (cond === 'partly') {
+            if (big) {
+                const x = Math.floor((width - 26) / 2);
+                stamp(night ? sprites.moon : sun, x, 0);
+                stamp(sprites.cloud, x + 7 + drift(0), 3);
+            } else {
+                stamp(night ? sprites.moon : sun, 0, 0);
+                stamp(sprites.cloud, 3 + Math.min(0, drift(0)), 2);
+            }
+        } else {
+            const count = big ? Math.max(1, Math.floor(width / 21)) : 1;
+            const xs = [];
+            for (let i = 0; i < count; i++) {
+                const x = Math.round(i * width / count + (width / count - sprites.cloudW) / 2) + drift(i);
+                xs.push(x);
+                stamp(sprites.cloud, x, big && count > 1 && i % 2 ? 1 : 0);
+            }
+            if (cond === 'storm' && time % 14 < 2) {
+                flash = true;
+                stamp(sprites.bolt, xs[0] + Math.floor(sprites.cloudW / 2) - 1, top);
+            }
+        }
+
+        return { text: grid.map((row) => row.join('')).join('\n'), flash };
+    }
+
+    /* Every condition gets its own palette, so the card reads as the weather
+       before any of the numbers do. --art is the accent where the scene should
+       carry colour and the foreground where it should stay ink. */
+    function palette(cond, night, flash) {
+        let theme;
+        if (cond === 'storm') {
+            theme = flash
+                ? { bg: '#2b2742', fg: '#fffbea', dim: '#cfc9e6', acc: '#ffe27a' }
+                : { bg: '#15131d', fg: '#e6e2f3', dim: '#a29cbd', acc: 'oklch(0.85 0.14 95)' };
+        } else if (night) {
+            theme = { bg: '#0e1118', fg: '#dfe5ee', dim: '#939eb0', acc: 'oklch(0.86 0.1 90)' };
+        } else if (cond === 'clear') {
+            theme = { bg: '#f6efdf', fg: '#2b2216', dim: '#76664e', acc: 'oklch(0.6 0.17 55)' };
+        } else if (cond === 'partly') {
+            theme = { bg: '#eef0e8', fg: '#232a26', dim: '#626c66', acc: 'oklch(0.6 0.15 70)' };
+        } else if (cond === 'rain') {
+            theme = { bg: '#dce3e7', fg: '#1b2830', dim: '#53626b', acc: 'oklch(0.5 0.12 235)' };
+        } else if (cond === 'snow') {
+            theme = { bg: '#f2f5f7', fg: '#25303a', dim: '#626e79', acc: 'oklch(0.53 0.12 250)' };
+        } else {
+            theme = { bg: '#e5e5e2', fg: '#26272a', dim: '#626368', acc: 'oklch(0.48 0.06 250)' };
+        }
+        theme.art = (cond === 'clear' || cond === 'partly' || cond === 'storm') ? theme.acc : theme.fg;
+        return theme;
+    }
+
+    /* Runs every tick: the scene, the palette it implies, and the three forecast
+       icons. Touches text and custom properties only, never structure. */
+    function paint() {
+        const now = readings[CITIES[index].code];
+        const hero = scene(now.cond, now.night, step, SCENE_W, SCENE_H, true);
+        const theme = palette(now.cond, now.night, hero.flash);
+
+        root.style.setProperty('--bg', theme.bg);
+        root.style.setProperty('--fg', theme.fg);
+        root.style.setProperty('--dim', theme.dim);
+        root.style.setProperty('--art', theme.art);
+        byId('scene').textContent = hero.text;
+
+        const icons = byId('days').querySelectorAll('pre');
+        now.days.forEach((day, i) => {
+            if (icons[i]) icons[i].textContent = scene(day[1], false, step + i * 5, ICON_W, ICON_H, false).text;
+        });
+    }
+
+    /* Called only when the city changes; everything else repaints. */
+    function build() {
+        const city = CITIES[index];
+        const now = readings[city.code];
+
+        byId('city').innerHTML = `${city.name} <span class="dim" aria-hidden="true">&gt;</span>`;
+        byId('city').setAttribute('aria-label', `${city.name}, volgende stad`);
+        byId('time').textContent = now.time;
+        byId('temp').textContent = deg(now.temp);
+        byId('desc').textContent = now.desc;
+        byId('hilo').textContent = `H ${deg(now.hi)} L ${deg(now.lo)}`;
+
+        const cells = [
+            ['gevoel', deg(now.feels)],
+            ['vochtigheid', `${now.hum}%`],
+            ['wind', `${now.wind} km/h`],
+            ['uv', now.uv],
+            ['regen', `${now.precip}%`],
+            now.night ? ['zonsopkomst', now.rise] : ['zonsondergang', now.set],
+        ];
+        byId('cells').innerHTML = cells
+            .map(([label, value]) => `<div><span class="dim">${label}</span><b>${value}</b></div>`)
+            .join('');
+
+        byId('days').innerHTML = now.days
+            .map(([name, , hi, lo]) => `<div><span>${name}</span><pre aria-hidden="true"></pre><span>${deg(hi)} <span class="dim">${deg(lo)}</span></span></div>`)
+            .join('');
+
+        byId('dots').innerHTML = CITIES
+            .map((other, i) => `<button class="${i === index ? 'on' : ''}" type="button" aria-label="Toon ${other.name}" aria-pressed="${i === index}">${i === index ? 'o' : '.'}</button>`)
+            .join('');
+        byId('dots').querySelectorAll('button').forEach((dot, i) => {
+            dot.addEventListener('click', () => setCity(i));
+        });
+
+        paint();
+    }
+
+    function setCity(i) {
+        index = (i + CITIES.length) % CITIES.length;
+        build();
+    }
+
+    function reading(entry) {
+        const current = entry.current;
+        const daily = entry.daily;
+        const [cond, desc] = CONDITIONS[current.weather_code] || UNKNOWN;
+        return {
+            time: clock(current.time),
+            night: current.is_day === 0,
+            cond: cond,
+            desc: desc,
+            temp: Math.round(current.temperature_2m),
+            feels: Math.round(current.apparent_temperature),
+            hum: Math.round(current.relative_humidity_2m),
+            wind: Math.round(current.wind_speed_10m),
+            hi: Math.round(daily.temperature_2m_max[0]),
+            lo: Math.round(daily.temperature_2m_min[0]),
+            uv: Math.round(daily.uv_index_max[0]),
+            precip: Math.round(daily.precipitation_probability_max[0]),
+            rise: clock(daily.sunrise[0]),
+            set: clock(daily.sunset[0]),
+            days: [1, 2, 3].map((i) => [
+                dayName.format(new Date(daily.time[i])),
+                (CONDITIONS[daily.weather_code[i]] || UNKNOWN)[0],
+                Math.round(daily.temperature_2m_max[i]),
+                Math.round(daily.temperature_2m_min[i]),
+            ]),
+        };
+    }
+
+    /* Open-Meteo takes comma separated coordinates and answers in the same
+       order, so all six cities arrive in one request. */
+    function load() {
+        const url = `${ENDPOINT}?latitude=${CITIES.map((c) => c.lat).join(',')}`
+            + `&longitude=${CITIES.map((c) => c.lon).join(',')}`
+            + `&current=${CURRENT}&daily=${DAILY}&timezone=auto&forecast_days=4`;
+
+        fetch(url)
+            .then((response) => (response.ok ? response.json() : Promise.reject()))
+            .then((payload) => {
+                const list = Array.isArray(payload) ? payload : [payload];
+                const next = Object.assign({}, FALLBACK);
+                CITIES.forEach((city, i) => {
+                    if (list[i]) next[city.code] = reading(list[i]);
+                });
+                readings = next;
+                build();
+            })
+            /* A failed request is not an error state here: the snapshot simply
+               stays, which is what lets the widget work offline and from file://. */
+            .catch(() => {});
+    }
+
+    byId('city').addEventListener('click', () => setCity(index + 1));
+
+    build();
+    load();
+
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        setInterval(() => {
+            step++;
+            paint();
+        }, TICK_MS);
+    }
+})();
+</script>
+</body>
+</html>
