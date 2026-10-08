@@ -221,12 +221,11 @@
     /* Identity only. Everything that can change comes from the API, or from
        FALLBACK when the request cannot be made. */
     const CITIES = [
-        { code: 'AMS', name: 'Amsterdam', lat: 52.3676, lon: 4.9041 },
-        { code: 'TYO', name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
-        { code: 'REK', name: 'Reykjavík', lat: 64.1466, lon: -21.9426 },
+        { code: 'ZWO', name: 'Zwolle', lat: 52.5168, lon: 6.0830 },
+        { code: 'STO', name: 'Stockholm', lat: 59.3293, lon: 18.0686 },
         { code: 'RAK', name: 'Marrakesh', lat: 31.6295, lon: -7.9811 },
-        { code: 'MIA', name: 'Miami', lat: 25.7617, lon: -80.1918 },
-        { code: 'SEA', name: 'Seattle', lat: 47.6062, lon: -122.3321 },
+        { code: 'LAX', name: 'Los Angeles', lat: 34.0522, lon: -118.2437 },
+        { code: 'FLR', name: 'Florence', lat: 43.7696, lon: 11.2558 },
     ];
 
     /* WMO weather codes grouped into the five scenes the renderer can draw.
@@ -267,18 +266,16 @@
     /* A snapshot in the same shape the API produces, so the card can be built
        before the request resolves and can survive it failing entirely. */
     const FALLBACK = {
-        AMS: { time: '14:20', night: false, cond: 'rain', desc: 'Motregen', temp: 13, feels: 11, hi: 15, lo: 9, hum: 84, wind: 22, uv: 1, rise: '07:48', set: '19:21', precip: 80,
+        ZWO: { time: '14:20', night: false, cond: 'rain', desc: 'Motregen', temp: 13, feels: 11, hi: 15, lo: 9, hum: 84, wind: 19, uv: 1, rise: '07:48', set: '19:21', precip: 80,
             days: [['za', 'rain', 14, 9], ['zo', 'cloudy', 15, 10], ['ma', 'partly', 17, 10]] },
-        TYO: { time: '21:20', night: true, cond: 'clear', desc: 'Heldere sterrennacht', temp: 22, feels: 23, hi: 26, lo: 19, hum: 61, wind: 8, uv: 0, rise: '05:33', set: '17:24', precip: 5,
-            days: [['za', 'partly', 25, 19], ['zo', 'rain', 22, 18], ['ma', 'rain', 21, 17]] },
-        REK: { time: '12:20', night: false, cond: 'snow', desc: 'Lichte sneeuw', temp: -2, feels: -8, hi: 0, lo: -4, hum: 90, wind: 31, uv: 0, rise: '08:01', set: '18:41', precip: 75,
-            days: [['za', 'snow', -1, -5], ['zo', 'cloudy', 1, -3], ['ma', 'partly', 2, -2]] },
+        STO: { time: '14:20', night: false, cond: 'snow', desc: 'Lichte sneeuw', temp: -1, feels: -6, hi: 1, lo: -4, hum: 88, wind: 24, uv: 0, rise: '07:12', set: '17:48', precip: 70,
+            days: [['za', 'snow', 0, -5], ['zo', 'cloudy', 2, -3], ['ma', 'partly', 3, -2]] },
         RAK: { time: '13:20', night: false, cond: 'clear', desc: 'Zonnig en droog', temp: 31, feels: 30, hi: 33, lo: 18, hum: 22, wind: 11, uv: 7, rise: '07:22', set: '19:06', precip: 0,
             days: [['za', 'clear', 34, 19], ['zo', 'clear', 33, 18], ['ma', 'partly', 30, 17]] },
-        MIA: { time: '08:20', night: false, cond: 'storm', desc: 'Onweer', temp: 27, feels: 31, hi: 29, lo: 25, hum: 88, wind: 34, uv: 3, rise: '07:13', set: '19:08', precip: 95,
-            days: [['za', 'storm', 29, 25], ['zo', 'rain', 30, 25], ['ma', 'partly', 31, 26]] },
-        SEA: { time: '05:20', night: true, cond: 'cloudy', desc: 'Bewolkt en rustig', temp: 9, feels: 7, hi: 15, lo: 8, hum: 78, wind: 9, uv: 0, rise: '07:12', set: '18:44', precip: 20,
-            days: [['za', 'rain', 14, 9], ['zo', 'rain', 13, 9], ['ma', 'cloudy', 14, 8]] },
+        LAX: { time: '05:20', night: true, cond: 'clear', desc: 'Heldere sterrennacht', temp: 17, feels: 17, hi: 26, lo: 15, hum: 72, wind: 7, uv: 0, rise: '06:52', set: '18:29', precip: 0,
+            days: [['za', 'clear', 27, 16], ['zo', 'partly', 26, 16], ['ma', 'clear', 28, 17]] },
+        FLR: { time: '14:20', night: false, cond: 'partly', desc: 'Half bewolkt', temp: 21, feels: 21, hi: 24, lo: 12, hum: 54, wind: 9, uv: 4, rise: '07:29', set: '18:58', precip: 15,
+            days: [['za', 'partly', 25, 13], ['zo', 'storm', 22, 14], ['ma', 'rain', 20, 13]] },
     };
 
     /* Two sprite sets: the hero scene and the small forecast icons. The trailing
@@ -316,7 +313,7 @@
 
     const root = document.querySelector('.weather');
     let readings = FALLBACK;
-    let index = 4;
+    let index = 0;          /* opens on Zwolle, the one city the visitor is most likely standing in */
     let step = 0;
 
     /* Draws one frame of ASCII weather onto a width x height character grid.
