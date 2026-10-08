@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="widget-base.css">
+<style>
+.datepicker,
+.datepicker *,
+.datepicker *::before {
+    box-sizing: border-box;
+}
+
+.datepicker {
+    --accent: #FE5F48;
+    --tint: rgba(254, 95, 72, 0.14);
+    --hover: #f2f2f2;
+    --pressed: #e2e2e2;
+    --muted: #b3b3b3;
+    --line: #ececec;
+
+    /* Every measurement below is a multiple of --u, so the whole calendar
+       scales as one piece. The card is ~27.2u tall and the widget sits in a
+       square tile, so height is what runs out first: 3.3vmin keeps it inside
+       a small tile, while the 1rem cap holds it at the design size on desktop. */
+    --u: min(1rem, 3.3vmin);
+    --cell-radius: calc(var(--u) * 0.5);
+
+    font-size: var(--u);
+    background: white;
+    border-radius: calc(var(--u) * 2);
+    padding: calc(var(--u) * 1.25);
+    width: 90%;
+    max-width: calc(var(--u) * 20);
+    box-shadow: 0px 1px 1rem 0px rgba(0, 0, 0, 0.08);
+    user-select: none;
+}
+
+.datepicker p {
+    margin: 0;
+}
+
+/* Header: month title left, the two month steppers right */
+.datepicker .head {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--u) * 0.5);
+    padding-bottom: calc(var(--u) * 0.75);
+}
+
+.datepicker .head .month {
+    font-weight: 600;
+    font-size: 1em;
+}
+
+.datepicker .head .steppers {
+    display: flex;
+    flex-direction: row;
+    gap: calc(var(--u) * 0.25);
+}
+
+.datepicker .step {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    width: calc(var(--u) * 1.75);
+    height: calc(var(--u) * 1.75);
+    border-radius: var(--cell-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 150ms ease-in-out;
+}
+
+.datepicker .step:hover { background: var(--hover); }
+.datepicker .step:active { background: var(--pressed); }
+
+.datepicker .step svg {
+    width: var(--u);
+    height: var(--u);
+}
+
+/* Both rows use the same 7 track grid so weekdays line up with the days */
+.datepicker .weekdays,
+.datepicker .days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    column-gap: 0;
+}
+
+/* The range squares run edge to edge, so this gap is what separates the
+   bands of a range that wraps onto the next row. */
+.datepicker .days {
+    row-gap: calc(var(--u) * 0.5);
+}
+
+.datepicker .weekdays {
+    padding-bottom: calc(var(--u) * 0.25);
+}
+
+.datepicker .weekdays span {
+    text-align: center;
+    font-size: 0.75em;
+    color: var(--muted);
+}
+
+/* The day component is three nested squares, each 4px inside the last:
+     1. the cell        .day          2.5u = 40px
+     2. the range square .day::before  fills the cell, so it wraps the block
+                                       on all four sides, top and bottom too
+     3. the day block   .day span      80% of the cell = 2u = 32px
+   The range square is invisible until the day is a range start, middle or
+   end. It spans the full cell width with no column gap, so consecutive days
+   merge into one continuous band; the rows are held apart by row-gap. */
+.datepicker .day {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-size: 0.875em;
+    color: inherit;
+    cursor: pointer;
+}
+
+.datepicker .day::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: transparent;
+}
+
+.datepicker .day.in-range::before { background: var(--tint); }
+.datepicker .day.edge-l::before {
+    border-top-left-radius: var(--cell-radius);
+    border-bottom-left-radius: var(--cell-radius);
+}
+.datepicker .day.edge-r::before {
+    border-top-right-radius: var(--cell-radius);
+    border-bottom-right-radius: var(--cell-radius);
+}
+
+.datepicker .day span {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Square block, inset 4px inside the range square on every side.
+       Width and height are both stated in --u rather than left to
+       aspect-ratio: as a flex item the ratio loses to the row height and the
+       block turns into a portrait rectangle at smaller sizes. The cell is
+       always exactly 2.5u wide, so 2u is the 4px inset on every side. */
+    flex: 0 0 auto;
+    width: calc(var(--u) * 2);
+    height: calc(var(--u) * 2);
+    border-radius: var(--cell-radius);
+    transition: background 150ms ease-in-out;
+}
+
+/* default -> hover -> active */
+.datepicker .day:hover span { background: var(--hover); }
+.datepicker .day:active span { background: var(--pressed); }
+
+.datepicker .day:focus-visible {
+    outline: none;
+}
+
+.datepicker .day:focus-visible span {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+/* Days spilling in from the neighbouring months stay readable but recede */
+.datepicker .day.outside span { color: var(--muted); }
+
+/* Today is marked with colour rather than a block, so it never competes with
+   the selection; the .picked rule below overrides it once today is picked. */
+.datepicker .day.today span {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* Selection: a lone pick, or either end of a range */
+.datepicker .day.picked span,
+.datepicker .day.picked:hover span {
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+}
+
+.datepicker .foot {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: calc(var(--u) * 0.5);
+    margin-top: calc(var(--u) * 0.75);
+    padding-top: calc(var(--u) * 0.75);
+    border-top: 1px solid var(--line);
+}
+
+.datepicker .foot button {
+    border: 0;
+    background: transparent;
+    padding: calc(var(--u) * 0.25) calc(var(--u) * 0.5);
+    margin: calc(var(--u) * -0.25) calc(var(--u) * -0.5);
+    border-radius: var(--cell-radius);
+    font: inherit;
+    font-size: 0.875em;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background 150ms ease-in-out;
+}
+
+.datepicker .foot button:hover { background: var(--tint); }
+
+@media (prefers-reduced-motion: reduce) {
+    .datepicker * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="datepicker">
+    <div class="head">
+        <p class="month" id="month" aria-live="polite"></p>
+        <div class="steppers">
+            <button class="step" id="prev" type="button" aria-label="Vorige maand">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <button class="step" id="next" type="button" aria-label="Volgende maand">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="weekdays" aria-hidden="true">
+        <span>ma</span><span>di</span><span>wo</span><span>do</span>
+        <span>vr</span><span>za</span><span>zo</span>
+    </div>
+
+    <div class="days" id="days"></div>
+
+    <div class="foot">
+        <button type="button" id="clear">Wissen</button>
+        <button type="button" id="today">Vandaag</button>
+    </div>
+</div>
+
+<script>
+(function () {
+    const ROWS = 6;
+    const COLS = 7;
+    const grid = document.getElementById('days');
+    const label = document.getElementById('month');
+
+    /* Dates are compared as plain day numbers so a stray time component can
+       never make two calendar days look different. */
+    const key = (d) => d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
+    const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+    /* Round tripping through the dataset stays in local time on purpose:
+       toISOString() would push local midnight back a day east of UTC. */
+    const pad = (n) => String(n).padStart(2, '0');
+    const stamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const parse = (s) => {
+        const [y, m, d] = s.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    };
+
+    const today = new Date();
+    let view = new Date(today.getFullYear(), today.getMonth(), 1);
+    let start = today;
+    let end = addDays(today, 6);
+    let hovered = null;
+
+    const monthName = new Intl.DateTimeFormat('nl-NL', { month: 'long', year: 'numeric' });
+    const fullDate = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    /* While only a start is set, the day under the cursor stands in for the
+       end so the range previews as you sweep across the grid. */
+    function bounds() {
+        const tail = end || hovered;
+        if (!start || !tail) return { from: start, to: start };
+        return key(tail) < key(start) ? { from: tail, to: start } : { from: start, to: tail };
+    }
+
+    /* The 42 buttons are built once per month and then only repainted.
+       Rebuilding them on hover would replace the button under the cursor
+       between mousedown and mouseup, and the browser would never fire the
+       click, so a second date could not be picked. */
+    let cells = [];
+
+    function build() {
+        const first = new Date(view.getFullYear(), view.getMonth(), 1);
+        /* getDay() is Sunday based; the grid starts on Monday. */
+        const lead = (first.getDay() + 6) % 7;
+        const origin = addDays(first, -lead);
+
+        label.textContent = monthName.format(view).replace(/^./, (c) => c.toUpperCase());
+        grid.textContent = '';
+        cells = [];
+
+        for (let i = 0; i < ROWS * COLS; i++) {
+            const date = addDays(origin, i);
+
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'day';
+            cell.dataset.date = stamp(date);
+            cell.setAttribute('aria-label', fullDate.format(date));
+
+            const num = document.createElement('span');
+            num.textContent = String(date.getDate());
+            cell.appendChild(num);
+            grid.appendChild(cell);
+
+            cells.push({ el: cell, date });
+        }
+
+        paint();
+    }
+
+    function paint() {
+        const { from, to } = bounds();
+        const within = (d) => Boolean(from && to && key(d) >= key(from) && key(d) <= key(to));
+
+        cells.forEach(({ el, date }, i) => {
+            const col = i % COLS;
+            const inRange = within(date);
+            const isEnd = inRange && (key(date) === key(from) || key(date) === key(to));
+
+            /* The band is rounded wherever the range starts or stops, and at
+               the row break, so each row reads as its own block. */
+            const prevIn = col > 0 && within(cells[i - 1].date);
+            const nextIn = col < COLS - 1 && within(cells[i + 1].date);
+
+            el.classList.toggle('outside', date.getMonth() !== view.getMonth());
+            el.classList.toggle('today', key(date) === key(today));
+            el.classList.toggle('in-range', inRange);
+            el.classList.toggle('picked', isEnd);
+            el.classList.toggle('edge-l', inRange && !prevIn);
+            el.classList.toggle('edge-r', inRange && !nextIn);
+            el.setAttribute('aria-pressed', String(inRange));
+        });
+    }
+
+    function pick(date) {
+        /* First click opens a range, second closes it, third starts over. */
+        if (!start || end) {
+            start = date;
+            end = null;
+        } else if (key(date) < key(start)) {
+            end = start;
+            start = date;
+        } else {
+            end = date;
+        }
+        hovered = null;
+        paint();
+    }
+
+    function shiftMonth(step) {
+        view = new Date(view.getFullYear(), view.getMonth() + step, 1);
+        build();
+    }
+
+    grid.addEventListener('click', (event) => {
+        const cell = event.target.closest('.day');
+        if (cell) pick(parse(cell.dataset.date));
+    });
+
+    grid.addEventListener('mouseover', (event) => {
+        const cell = event.target.closest('.day');
+        if (!cell || !start || end) return;
+        const date = parse(cell.dataset.date);
+        if (hovered && key(hovered) === key(date)) return;
+        hovered = date;
+        paint();
+    });
+
+    grid.addEventListener('mouseleave', () => {
+        if (hovered) {
+            hovered = null;
+            paint();
+        }
+    });
+
+    document.getElementById('prev').addEventListener('click', () => shiftMonth(-1));
+    document.getElementById('next').addEventListener('click', () => shiftMonth(1));
+
+    document.getElementById('clear').addEventListener('click', () => {
+        start = null;
+        end = null;
+        hovered = null;
+        paint();
+    });
+
+    document.getElementById('today').addEventListener('click', () => {
+        view = new Date(today.getFullYear(), today.getMonth(), 1);
+        start = today;
+        end = null;
+        hovered = null;
+        build();
+    });
+
+    build();
+})();
+</script>
+</body>
+</html>

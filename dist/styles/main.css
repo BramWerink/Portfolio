@@ -1,0 +1,198 @@
+/* Breakpoints as Sass variables: a media query condition cannot read a
+   CSS custom property, so these have to exist at compile time. */
+/* Design tokens as CSS custom properties (available at runtime) */
+:root {
+  --primary: #ff7a00;
+  --color-muted: #9b9b9b;
+  --color-bg: #ffffff;
+  --surface: #f5f5f5;
+  --radius: 8px;
+  --max-width: 1100px;
+  --font-stack: "Manrope", sans-serif;
+  /* type */
+  --body-color: #352b22;
+  /* Polka dot background */
+  --dot-size: 4px; /* diameter of each dot */
+  --dot-gap: 16px; /* space BETWEEN dots */
+  --dots-color: rgba(0,0,0,0.06); /* subtle dot color */
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body, h1, h2, h3, h4, h5, h6, p, a {
+  font-family: var(--font-stack);
+  line-height: 150%;
+  margin: 0;
+  color: var(--body-color);
+}
+
+h2 {
+  font-size: 3rem;
+}
+@media (max-width: 900px) {
+  h2 {
+    font-size: 2.25rem;
+  }
+}
+@media (max-width: 600px) {
+  h2 {
+    font-size: 1.75rem;
+  }
+}
+
+.sub {
+  opacity: 0.5;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  /* Keeps text off the screen edge below --max-width */
+  padding-inline: 1.5rem;
+}
+@media (max-width: 600px) {
+  .container {
+    padding-inline: 1.25rem;
+  }
+}
+
+section.hero {
+  width: 100%;
+  height: 80vh;
+  position: relative;
+  /* Polka dot background: dots are 4px with 16px gap between dots (center-to-center = 4 + 16 = 20px) */
+  background-color: var(--color-bg);
+  background-image: radial-gradient(circle, var(--dots-color) calc(var(--dot-size) / 2), transparent calc(var(--dot-size) / 2));
+  background-size: calc(var(--dot-size) + var(--dot-gap)) calc(var(--dot-size) + var(--dot-gap));
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+section.hero .container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 4rem;
+  height: 100%;
+}
+@media (max-width: 900px) {
+  section.hero .container {
+    padding-top: 3rem;
+  }
+}
+@media (max-width: 600px) {
+  section.hero .container {
+    padding-top: 2rem;
+  }
+}
+section.hero .profile {
+  display: flex;
+  flex-direction: row;
+  align-items: center; /* prevents children from stretching in flex layout */
+  gap: 1rem;
+}
+section.hero .profile .profile-image {
+  width: 3rem;
+  aspect-ratio: 1/1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface);
+}
+section.hero h1 {
+  font-size: 5rem;
+}
+section.hero h1 span {
+  color: var(--primary);
+}
+@media (max-width: 900px) {
+  section.hero h1 {
+    font-size: 3.5rem;
+  }
+}
+@media (max-width: 600px) {
+  section.hero h1 {
+    font-size: 2.5rem;
+  }
+}
+section.hero p.subtext {
+  font-size: 2.5rem;
+}
+@media (max-width: 900px) {
+  section.hero p.subtext {
+    font-size: 1.75rem;
+  }
+}
+@media (max-width: 600px) {
+  section.hero p.subtext {
+    font-size: 1.25rem;
+  }
+}
+section.hero .gradient {
+  background: linear-gradient(0deg, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+  position: absolute;
+  bottom: 0px;
+  height: 10rem;
+  width: 100%;
+}
+@media (max-width: 600px) {
+  section.hero .gradient {
+    height: 5rem;
+  }
+}
+
+section.library {
+  padding: 3rem 0;
+}
+section.library .grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  width: 100%;
+  /* One square per row: two columns leave each widget too narrow to read */
+}
+@media (max-width: 600px) {
+  section.library .grid {
+    grid-template-columns: 1fr;
+  }
+}
+section.library .grid-item {
+  aspect-ratio: 1/1;
+  background: var(--surface, #f5f5f5);
+  border-radius: 1rem;
+  padding: 0;
+  overflow: hidden;
+}
+section.library .grid-item iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+section.library .grid-item.wide {
+  grid-column: 1/-1;
+  aspect-ratio: 2/1;
+}
+@media (max-width: 600px) {
+  section.library .grid-item.wide {
+    aspect-ratio: 1/1;
+  }
+}
+section.library .subtext {
+  margin-bottom: 2rem;
+  font-size: 1.5rem;
+}
+@media (max-width: 900px) {
+  section.library .subtext {
+    font-size: 1.25rem;
+  }
+}
+@media (max-width: 600px) {
+  section.library .subtext {
+    font-size: 1.125rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+/*# sourceMappingURL=main.css.map */

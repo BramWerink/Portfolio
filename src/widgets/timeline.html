@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="widget-base.css">
+<style>
+.timeline,
+.timeline *,
+.timeline *::before,
+.timeline *::after {
+    box-sizing: border-box;
+}
+
+.timeline {
+    --bar: #1a73e8;
+    --key: #ffd400;
+    --play: #d93025;
+    --panel: #f2f2f2;
+    --lane: #e6e6e6;
+    --line: #dcdcdc;
+    --muted: #8a8a8a;
+    --ink: #2b2b2b;
+
+    /* Every measurement below is a multiple of --u, so the whole widget scales
+       as one piece. This widget sits in a landscape 2/1 tile that becomes a
+       square one at the phone breakpoint, so vmin alone cannot size it: the
+       stack is ~28u tall, which vh guards, and ~52u wide, which vw guards.
+       The rem cap holds it at the design size on a wide screen. */
+    --u: min(1.125rem, 3.4vh, 3.1vw);
+
+    /* The row label column. The ruler, the object rows and the playhead all
+       measure from this, which is why the label/lane grid has no column gap:
+       the lane then runs from exactly --label-w to the right edge, and the
+       playhead can be placed with the same sum. */
+    --label-w: calc(var(--u) * 10);
+
+    font-size: var(--u);
+    color: var(--ink);
+    background: white;
+    border-radius: calc(var(--u) * 1.5);
+    padding: var(--u);
+    width: 92%;
+    max-width: calc(var(--u) * 52);
+    height: 96%;
+    max-height: calc(var(--u) * 30);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 0.625);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.timeline p {
+    margin: 0;
+}
+
+/* ---------- canvas ---------- */
+
+/* Dots are 3px wide on a --u grid, the same recipe as the site hero. */
+.timeline .stage {
+    position: relative;
+    flex: 1;
+    min-height: calc(var(--u) * 9);
+    border: 1px dashed var(--line);
+    border-radius: var(--u);
+    background-image: radial-gradient(circle, rgba(0, 0, 0, 0.10) 1.5px, transparent 1.5px);
+    background-size: var(--u) var(--u);
+    overflow: hidden;
+    touch-action: none;
+}
+
+/* Objects sit at the stage origin and are moved with translate3d only, so a
+   playback frame never touches layout. The negative margin is the -50%/-50%
+   centring that a percentage translate cannot express: percentages inside a
+   transform resolve against the element, not against the stage. */
+.timeline .obj {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(var(--u) * 3);
+    height: calc(var(--u) * 3);
+    margin: calc(var(--u) * -1.5) 0 0 calc(var(--u) * -1.5);
+    border: 0;
+    padding: 0;
+    border-radius: calc(var(--u) * 0.5);
+    background: var(--chip);
+    cursor: grab;
+    touch-action: none;
+    will-change: transform;
+    /* Linear fade, to match the linear motion between keypoints */
+    transition: opacity 200ms linear, box-shadow 150ms ease-in-out;
+}
+
+.timeline .obj.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.timeline .obj.selected {
+    box-shadow: 0 0 0 calc(var(--u) * 0.1875) white,
+                0 0 0 calc(var(--u) * 0.3125) var(--bar);
+}
+
+.timeline .obj.dragging {
+    cursor: grabbing;
+}
+
+/* ---------- timeline panel ---------- */
+
+.timeline .panel {
+    background: var(--panel);
+    border-radius: var(--u);
+    padding: calc(var(--u) * 0.625);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 0.375);
+}
+
+/* Same two tracks as an object row, so the week labels line up with the lanes */
+.timeline .ruler {
+    display: grid;
+    grid-template-columns: var(--label-w) 1fr;
+    align-items: center;
+}
+
+.timeline .transport {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: calc(var(--u) * 0.5);
+    padding-right: calc(var(--u) * 0.5);
+}
+
+.timeline .play {
+    flex: none;
+    width: calc(var(--u) * 1.75);
+    height: calc(var(--u) * 1.75);
+    border: 0;
+    border-radius: 50%;
+    background: var(--bar);
+    color: white;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+.timeline .play svg {
+    width: calc(var(--u) * 0.875);
+    height: calc(var(--u) * 0.875);
+}
+
+.timeline .play .pause,
+.timeline.playing .play .start {
+    display: none;
+}
+
+.timeline.playing .play .pause {
+    display: block;
+}
+
+.timeline .day {
+    font-size: max(0.72em, 9.5px);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.timeline .weeks {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    font-size: max(0.68em, 9px);
+    color: var(--muted);
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.timeline .weeks span {
+    text-align: center;
+}
+
+.timeline .weeks span + span {
+    border-left: 1px solid var(--line);
+}
+
+/* The playhead is a sibling of the rows and spans them all, so .tracks is the
+   containing block that both measure against. */
+.timeline .tracks {
+    position: relative;
+}
+
+.timeline .rows {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 0.25);
+}
+
+.timeline .row {
+    display: grid;
+    grid-template-columns: var(--label-w) 1fr;
+    align-items: center;
+}
+
+/* The selected ring sits on the label, not on the pick button, so the remove
+   button is inside it and the chip reads as one control. The margin keeps the
+   ring off the lane; the lane still starts at exactly --label-w. */
+.timeline .label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+    margin-right: calc(var(--u) * 0.5);
+    padding: calc(var(--u) * 0.125);
+    border-radius: calc(var(--u) * 0.4375);
+}
+
+.timeline .row.selected .label {
+    background: white;
+    box-shadow: 0 0 0 calc(var(--u) * 0.125) var(--bar);
+}
+
+.timeline .pick {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: calc(var(--u) * 0.375);
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: max(0.75em, 9px);
+    color: inherit;
+    text-align: left;
+    padding: calc(var(--u) * 0.25) calc(var(--u) * 0.375);
+    border-radius: calc(var(--u) * 0.375);
+    cursor: pointer;
+}
+
+.timeline .pick:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.timeline .chip {
+    flex: none;
+    width: calc(var(--u) * 0.875);
+    height: calc(var(--u) * 0.875);
+    border-radius: calc(var(--u) * 0.1875);
+    background: var(--chip);
+}
+
+.timeline .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.timeline .remove {
+    flex: none;
+    visibility: hidden;
+    width: calc(var(--u) * 1.125);
+    height: calc(var(--u) * 1.125);
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+    border-radius: calc(var(--u) * 0.25);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+.timeline .row.selected .remove {
+    visibility: visible;
+}
+
+.timeline .remove:hover {
+    background: white;
+    color: var(--ink);
+}
+
+.timeline .remove svg {
+    width: calc(var(--u) * 0.625);
+    height: calc(var(--u) * 0.625);
+}
+
+/* ---------- lanes, bars, keypoints ---------- */
+
+.timeline .lane {
+    position: relative;
+    height: calc(var(--u) * 1.75);
+    background: var(--lane);
+    border-radius: calc(var(--u) * 0.375);
+    cursor: copy;
+    touch-action: none;
+}
+
+.timeline .bar {
+    position: absolute;
+    top: calc(var(--u) * 0.1875);
+    bottom: calc(var(--u) * 0.1875);
+    background: var(--bar);
+    border-radius: calc(var(--u) * 0.3125);
+    color: white;
+    font-size: max(0.65em, 8px);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.timeline .bar .len {
+    pointer-events: none;
+}
+
+.timeline .handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: calc(var(--u) * 0.4375);
+    cursor: ew-resize;
+}
+
+.timeline .handle.left { left: 0; }
+.timeline .handle.right { right: 0; }
+
+/* Keypoints are children of the lane, not of a bar, so a keypoint stays
+   visible and draggable when its bar is moved out from under it. */
+.timeline .key {
+    position: absolute;
+    top: 50%;
+    width: calc(var(--u) * 0.75);
+    height: calc(var(--u) * 0.75);
+    margin: calc(var(--u) * -0.375) 0 0 calc(var(--u) * -0.375);
+    background: var(--key);
+    border-radius: calc(var(--u) * 0.125);
+    transform: rotate(45deg);
+    cursor: ew-resize;
+}
+
+/* A real box with a width rather than a zero-width border, and centred on the
+   day position with a negative margin. The cap is then centred on this box
+   with left/translateX, so the line and the cap share one rounding step and
+   cannot drift apart by a subpixel. */
+.timeline .playhead {
+    position: absolute;
+    top: calc(var(--u) * -0.5);
+    bottom: calc(var(--u) * -0.25);
+    left: calc(var(--label-w) + (100% - var(--label-w)) * var(--p, 0));
+    width: calc(var(--u) * 0.125);
+    margin-left: calc(var(--u) * -0.0625);
+    background: var(--play);
+    pointer-events: none;
+}
+
+.timeline .playhead::before {
+    content: "";
+    position: absolute;
+    top: calc(var(--u) * -0.3125);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(var(--u) * 0.5);
+    height: calc(var(--u) * 0.5);
+    background: var(--play);
+    border-radius: calc(var(--u) * 0.0625);
+}
+
+/* ---------- footer ---------- */
+
+.timeline .add {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: calc(var(--u) * 0.375);
+    height: calc(var(--u) * 1.625);
+    padding-inline: calc(var(--u) * 0.5);
+    border: 1px dashed #bdbdbd;
+    border-radius: calc(var(--u) * 0.375);
+    background: transparent;
+    font: inherit;
+    font-size: max(0.72em, 9.5px);
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.timeline .add:hover:not(:disabled) {
+    background: white;
+    color: var(--ink);
+}
+
+.timeline .add:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.timeline .add svg {
+    width: calc(var(--u) * 0.625);
+    height: calc(var(--u) * 0.625);
+}
+
+.timeline .hint {
+    font-size: max(0.65em, 9px);
+    color: var(--muted);
+    text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .timeline .obj {
+        transition: none;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="timeline" id="root">
+    <div class="stage" id="stage"></div>
+
+    <div class="panel">
+        <div class="ruler">
+            <div class="transport">
+                <button class="play" id="play" type="button" aria-label="Speel" aria-pressed="false">
+                    <svg class="start" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <svg class="pause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+                </button>
+                <p class="day" id="dayLabel" aria-live="polite"></p>
+            </div>
+            <div class="weeks" id="weeks">
+                <span>Week 1</span><span>Week 2</span><span>Week 3</span>
+                <span>Week 4</span><span>Week 5</span><span>Week 6</span>
+            </div>
+        </div>
+
+        <div class="tracks">
+            <div class="rows" id="rows"></div>
+            <div class="playhead" id="playhead"></div>
+        </div>
+
+        <button class="add" id="add" type="button">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Nieuw object
+        </button>
+    </div>
+
+    <p class="hint">Sleep een object voor een keypoint &middot; sleep in een rij voor een periode &middot; dubbelklik om te verwijderen</p>
+</div>
+
+<script>
+(function () {
+    const DAYS = 42;          /* 6 weeks x 7 days, matching the week ruler */
+    const MAX = 4;            /* what the height of a square tile allows */
+    const MS_PER_DAY = 120;   /* a full pass is a bit over five seconds */
+
+    const PRESETS = [
+        { name: 'Schaftwagen', color: '#2e8b3d' },
+        { name: 'Generator', color: '#f28c00' },
+        { name: 'Kraan', color: '#8430ce' },
+        { name: 'Container', color: '#00897b' }
+    ];
+
+    const root = document.getElementById('root');
+    const stage = document.getElementById('stage');
+    const rows = document.getElementById('rows');
+    const weeks = document.getElementById('weeks');
+    const playhead = document.getElementById('playhead');
+    const dayLabel = document.getElementById('dayLabel');
+    const playBtn = document.getElementById('play');
+    const addBtn = document.getElementById('add');
+
+    const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+    const pct = (n) => `${n * 100}%`;
+
+    let uid = 0;
+    const nextId = () => `o${++uid}`;
+
+    /* x and y are fractions of the stage, never pixels, so resizing the tile
+       (two columns down to one at the phone breakpoint) cannot drift a
+       composition. */
+    const state = {
+        day: 11,
+        playing: false,
+        selected: null,
+        objects: [
+            {
+                id: nextId(), name: PRESETS[0].name, color: PRESETS[0].color,
+                spans: [{ from: 0, to: 13 }, { from: 16, to: 25 }],
+                /* Deliberately off the week boundaries (0, 7, 14, 21, 28, 35)
+                   and off the start of a period, so the default scene reads as
+                   placed by hand rather than snapped to the ruler. */
+                keys: [
+                    { day: 2, x: 0.14, y: 0.24 },
+                    { day: 9, x: 0.46, y: 0.34 },
+                    { day: 18, x: 0.80, y: 0.22 },
+                    { day: 24, x: 0.62, y: 0.66 }
+                ]
+            },
+            {
+                id: nextId(), name: PRESETS[1].name, color: PRESETS[1].color,
+                spans: [{ from: 0, to: 13 }, { from: 21, to: 30 }],
+                keys: [
+                    { day: 3, x: 0.30, y: 0.66 },
+                    { day: 12, x: 0.52, y: 0.80 },
+                    { day: 24, x: 0.18, y: 0.48 }
+                ]
+            }
+        ]
+    };
+
+    const byId = (id) => state.objects.find((o) => o.id === id);
+    const view = new Map();   /* object id -> its row, lane and stage element */
+    let size = { w: 0, h: 0 };
+
+    /* ---------- model ---------- */
+
+    /* A day is fractional during playback, so a span that ends on day 13 has to
+       stay visible until the playhead reaches day 14. */
+    function visibleAt(obj, day) {
+        return obj.spans.some((s) => day >= s.from && day < s.to + 1);
+    }
+
+    function positionAt(obj, day) {
+        const keys = obj.keys;
+        if (!keys.length) return { x: 0.5, y: 0.5 };
+        if (day <= keys[0].day) return keys[0];
+        const last = keys[keys.length - 1];
+        if (day >= last.day) return last;
+
+        for (let i = 0; i < keys.length - 1; i++) {
+            const a = keys[i];
+            const b = keys[i + 1];
+            if (day >= a.day && day <= b.day) {
+                /* Linear: constant speed between two keypoints, so the motion
+                   reads as a plan playing back rather than as UI easing. */
+                const t = (day - a.day) / (b.day - a.day);
+                return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+            }
+        }
+        return last;
+    }
+
+    /* Returns true when a keypoint was added rather than updated, which is the
+       only case where the diamonds have to be rebuilt. */
+    function upsertKey(obj, day, x, y) {
+        const found = obj.keys.find((k) => k.day === day);
+        if (found) {
+            found.x = x;
+            found.y = y;
+            return false;
+        }
+        obj.keys.push({ day, x, y });
+        obj.keys.sort((a, b) => a.day - b.day);
+        return true;
+    }
+
+    /* Run after every edit: sort, clamp, merge periods that overlap or touch
+       (contiguous days are one period), and drop duplicate keypoints. */
+    function normalize(obj) {
+        obj.spans = obj.spans
+            .map((s) => ({
+                from: clamp(Math.min(s.from, s.to), 0, DAYS - 1),
+                to: clamp(Math.max(s.from, s.to), 0, DAYS - 1)
+            }))
+            .sort((a, b) => a.from - b.from)
+            .reduce((acc, s) => {
+                const prev = acc[acc.length - 1];
+                if (prev && s.from <= prev.to + 1) prev.to = Math.max(prev.to, s.to);
+                else acc.push(s);
+                return acc;
+            }, []);
+
+        const seen = new Set();
+        obj.keys = obj.keys
+            .map((k) => ({ day: clamp(k.day, 0, DAYS - 1), x: clamp(k.x, 0, 1), y: clamp(k.y, 0, 1) }))
+            .sort((a, b) => a.day - b.day)
+            .filter((k) => (seen.has(k.day) ? false : seen.add(k.day)));
+    }
+
+    /* ---------- rendering ---------- */
+
+    const el = (tag, cls) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        return node;
+    };
+
+    function layoutBar(node, span) {
+        node.style.left = pct(span.from / DAYS);
+        node.style.width = pct((span.to - span.from + 1) / DAYS);
+        node.querySelector('.len').textContent = `${span.to - span.from + 1}D`;
+    }
+
+    const layoutKey = (node, key) => { node.style.left = pct((key.day + 0.5) / DAYS); };
+
+    /* Bars and keypoints share a lane, so each painter only clears its own
+       elements. Neither is called while its own elements are under a pointer. */
+    function paintBars(obj) {
+        const lane = view.get(obj.id).lane;
+        for (const node of lane.querySelectorAll('.bar')) node.remove();
+
+        obj.spans.forEach((span, i) => {
+            const bar = el('div', 'bar');
+            bar.dataset.i = i;
+            bar.append(el('span', 'handle left'), el('span', 'len'), el('span', 'handle right'));
+            layoutBar(bar, span);
+            lane.appendChild(bar);
+        });
+    }
+
+    function paintKeys(obj) {
+        const lane = view.get(obj.id).lane;
+        for (const node of lane.querySelectorAll('.key')) node.remove();
+
+        obj.keys.forEach((key, i) => {
+            const node = el('span', 'key');
+            node.dataset.i = i;
+            layoutKey(node, key);
+            lane.appendChild(node);
+        });
+    }
+
+    /* Called only when the object list itself changes; everything else repaints. */
+    function build() {
+        rows.textContent = '';
+        for (const node of stage.querySelectorAll('.obj')) node.remove();
+        view.clear();
+
+        for (const obj of state.objects) {
+            const row = el('div', 'row');
+            row.dataset.id = obj.id;
+            row.style.setProperty('--chip', obj.color);
+
+            const pick = el('button', 'pick');
+            pick.type = 'button';
+            pick.dataset.id = obj.id;
+            pick.setAttribute('aria-label', `Selecteer ${obj.name}`);
+            const name = el('span', 'name');
+            name.textContent = obj.name;
+            pick.append(el('span', 'chip'), name);
+
+            const remove = el('button', 'remove');
+            remove.type = 'button';
+            remove.dataset.id = obj.id;
+            remove.setAttribute('aria-label', `Verwijder ${obj.name}`);
+            remove.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+            const label = el('div', 'label');
+            label.append(pick, remove);
+
+            const lane = el('div', 'lane');
+            lane.dataset.id = obj.id;
+
+            row.append(label, lane);
+            rows.appendChild(row);
+
+            const box = el('button', 'obj');
+            box.type = 'button';
+            box.dataset.id = obj.id;
+            box.style.setProperty('--chip', obj.color);
+            box.setAttribute('aria-label', `${obj.name} verplaatsen`);
+            stage.appendChild(box);
+
+            view.set(obj.id, { row, lane, box });
+            paintBars(obj);
+            paintKeys(obj);
+        }
+
+        addBtn.disabled = state.objects.length >= MAX;
+        paint();
+    }
+
+    /* Runs every animation frame: transforms and classes only, no layout. */
+    function paint() {
+        const day = state.day;
+        playhead.style.setProperty('--p', (day + 0.5) / DAYS);
+        dayLabel.textContent = `Dag ${Math.floor(day) + 1} / ${DAYS}`;
+
+        for (const obj of state.objects) {
+            const v = view.get(obj.id);
+            if (!v) continue;
+            const p = positionAt(obj, day);
+            v.box.style.transform = `translate3d(${p.x * size.w}px, ${p.y * size.h}px, 0)`;
+            v.box.classList.toggle('hidden', !visibleAt(obj, day));
+            v.box.classList.toggle('selected', obj.id === state.selected);
+            v.row.classList.toggle('selected', obj.id === state.selected);
+        }
+    }
+
+    /* ---------- playback ---------- */
+
+    let raf = 0;
+    let last = 0;
+
+    function tick(now) {
+        if (!state.playing) return;
+        if (!last) last = now;
+        /* Capped so a backgrounded tab does not jump the playhead on return. */
+        const dt = Math.min(now - last, 250);
+        last = now;
+        state.day += dt / MS_PER_DAY;
+        if (state.day >= DAYS) state.day -= DAYS;
+        paint();
+        raf = requestAnimationFrame(tick);
+    }
+
+    function setPlaying(on) {
+        if (state.playing === on) return;
+        state.playing = on;
+        last = 0;
+        root.classList.toggle('playing', on);
+        playBtn.setAttribute('aria-pressed', String(on));
+        playBtn.setAttribute('aria-label', on ? 'Pauzeer' : 'Speel');
+        cancelAnimationFrame(raf);
+        if (on) raf = requestAnimationFrame(tick);
+    }
+
+    /* ---------- objects ---------- */
+
+    function select(id) {
+        state.selected = id;
+        paint();
+    }
+
+    function addObject() {
+        if (state.objects.length >= MAX) return;
+        const preset = PRESETS.find((p) => !state.objects.some((o) => o.name === p.name)) || PRESETS[0];
+        const obj = {
+            id: nextId(),
+            name: preset.name,
+            color: preset.color,
+            spans: [{ from: 0, to: 13 }],
+            keys: [{ day: 2, x: 0.5, y: 0.5 }]
+        };
+        state.objects.push(obj);
+        state.selected = obj.id;
+        build();
+    }
+
+    function removeObject(id) {
+        state.objects = state.objects.filter((o) => o.id !== id);
+        if (state.selected === id) state.selected = null;
+        build();
+    }
+
+    /* ---------- dragging ---------- */
+
+    /* One capture helper for every gesture. The pointer is always captured on
+       an element that outlives the drag (the stage object, the lane, the week
+       ruler), so no repaint can pull the target out from under the pointer and
+       swallow the pointerup. */
+    function drag(target, pointerId, onMove, onUp) {
+        const move = (event) => onMove(event);
+        const up = (event) => {
+            target.removeEventListener('pointermove', move);
+            target.removeEventListener('pointerup', up);
+            target.removeEventListener('pointercancel', up);
+            if (target.hasPointerCapture && target.hasPointerCapture(pointerId)) {
+                target.releasePointerCapture(pointerId);
+            }
+            if (onUp) onUp(event);
+        };
+        target.setPointerCapture(pointerId);
+        target.addEventListener('pointermove', move);
+        target.addEventListener('pointerup', up);
+        target.addEventListener('pointercancel', up);
+    }
+
+    /* Moving an object writes a keypoint on the day under the playhead. */
+    stage.addEventListener('pointerdown', (event) => {
+        const box = event.target.closest('.obj');
+        if (!box) return;
+        const obj = byId(box.dataset.id);
+        if (!obj) return;
+
+        event.preventDefault();
+        setPlaying(false);
+        select(obj.id);
+
+        const rect = stage.getBoundingClientRect();
+        const halfX = box.offsetWidth / 2 / rect.width;
+        const halfY = box.offsetHeight / 2 / rect.height;
+        const day = Math.floor(state.day);
+        box.classList.add('dragging');
+
+        drag(box, event.pointerId, (move) => {
+            const x = clamp((move.clientX - rect.left) / rect.width, halfX, 1 - halfX);
+            const y = clamp((move.clientY - rect.top) / rect.height, halfY, 1 - halfY);
+            if (upsertKey(obj, day, x, y)) paintKeys(obj);
+            paint();
+        }, () => {
+            box.classList.remove('dragging');
+        });
+    });
+
+    /* Lanes: drag empty track to create a period, drag a bar to move it, drag a
+       handle to resize it, drag a diamond to move a keypoint to another day. */
+    rows.addEventListener('pointerdown', (event) => {
+        const lane = event.target.closest('.lane');
+        if (!lane) return;
+        const obj = byId(lane.dataset.id);
+        if (!obj) return;
+
+        event.preventDefault();
+        setPlaying(false);
+        select(obj.id);
+
+        const rect = lane.getBoundingClientRect();
+        const dayAt = (x) => clamp(Math.floor(((x - rect.left) / rect.width) * DAYS), 0, DAYS - 1);
+
+        const keyEl = event.target.closest('.key');
+        const handle = event.target.closest('.handle');
+        const barEl = event.target.closest('.bar');
+
+        let mode;
+        let ref;
+        let node;
+        let grab = 0;
+        let anchor = 0;
+
+        if (keyEl) {
+            mode = 'key';
+            ref = obj.keys[Number(keyEl.dataset.i)];
+            node = keyEl;
+        } else if (handle && barEl) {
+            mode = handle.classList.contains('left') ? 'from' : 'to';
+            ref = obj.spans[Number(barEl.dataset.i)];
+            node = barEl;
+        } else if (barEl) {
+            mode = 'move';
+            ref = obj.spans[Number(barEl.dataset.i)];
+            node = barEl;
+            grab = dayAt(event.clientX) - ref.from;
+        } else {
+            mode = 'new';
+            anchor = dayAt(event.clientX);
+            ref = { from: anchor, to: anchor };
+            obj.spans.push(ref);
+            paintBars(obj);
+            node = lane.querySelector(`.bar[data-i="${obj.spans.length - 1}"]`);
+        }
+        if (!ref || !node) return;
+
+        drag(lane, event.pointerId, (move) => {
+            const day = dayAt(move.clientX);
+            if (mode === 'key') {
+                ref.day = day;
+                layoutKey(node, ref);
+            } else if (mode === 'from') {
+                ref.from = Math.min(day, ref.to);
+                layoutBar(node, ref);
+            } else if (mode === 'to') {
+                ref.to = Math.max(day, ref.from);
+                layoutBar(node, ref);
+            } else if (mode === 'move') {
+                const len = ref.to - ref.from;
+                ref.from = clamp(day - grab, 0, DAYS - 1 - len);
+                ref.to = ref.from + len;
+                layoutBar(node, ref);
+            } else {
+                ref.from = Math.min(anchor, day);
+                ref.to = Math.max(anchor, day);
+                layoutBar(node, ref);
+            }
+            paint();
+        }, () => {
+            normalize(obj);
+            paintBars(obj);
+            paintKeys(obj);
+            paint();
+        });
+    });
+
+    /* Double click removes: a keypoint first, otherwise the whole period. */
+    rows.addEventListener('dblclick', (event) => {
+        const lane = event.target.closest('.lane');
+        if (!lane) return;
+        const obj = byId(lane.dataset.id);
+        if (!obj) return;
+
+        const keyEl = event.target.closest('.key');
+        if (keyEl) {
+            obj.keys.splice(Number(keyEl.dataset.i), 1);
+            paintKeys(obj);
+            paint();
+            return;
+        }
+
+        const barEl = event.target.closest('.bar');
+        if (barEl) {
+            obj.spans.splice(Number(barEl.dataset.i), 1);
+            paintBars(obj);
+            paint();
+        }
+    });
+
+    rows.addEventListener('click', (event) => {
+        const remove = event.target.closest('.remove');
+        if (remove) {
+            removeObject(remove.dataset.id);
+            return;
+        }
+        const pick = event.target.closest('.pick');
+        if (pick) select(pick.dataset.id);
+    });
+
+    /* Scrubbing the week ruler */
+    weeks.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        setPlaying(false);
+        const rect = weeks.getBoundingClientRect();
+        const scrub = (x) => {
+            state.day = clamp(Math.floor(((x - rect.left) / rect.width) * DAYS), 0, DAYS - 1);
+            paint();
+        };
+        scrub(event.clientX);
+        drag(weeks, event.pointerId, (move) => scrub(move.clientX));
+    });
+
+    playBtn.addEventListener('click', () => setPlaying(!state.playing));
+    addBtn.addEventListener('click', addObject);
+
+    /* The stage size is only read here, so a playback frame never measures. */
+    function measure() {
+        size = { w: stage.clientWidth, h: stage.clientHeight };
+    }
+
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => { measure(); paint(); }).observe(stage);
+    } else {
+        window.addEventListener('resize', () => { measure(); paint(); });
+    }
+
+    measure();
+    build();
+})();
+</script>
+</body>
+</html>

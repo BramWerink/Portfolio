@@ -1,0 +1,24 @@
+/* Breakpoints as Sass variables: a media query condition cannot read a
+   CSS custom property, so these have to exist at compile time. */
+$bp-tablet: 900px;
+$bp-phone: 600px;
+
+/* Design tokens as CSS custom properties (available at runtime) */
+:root {
+  --primary: #ff7a00;
+  --color-muted: #9b9b9b;
+  --color-bg: #ffffff;
+  --surface: #f5f5f5;
+  --radius: 8px;
+  --max-width: 1100px;
+  --font-stack: "Manrope", sans-serif;
+
+  /* type */
+  --body-color: #352b22;
+
+
+  /* Polka dot background */
+  --dot-size: 4px;   /* diameter of each dot */
+  --dot-gap: 16px;   /* space BETWEEN dots */
+  --dots-color: rgba(0,0,0,0.06); /* subtle dot color */
+}
